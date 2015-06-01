@@ -1,0 +1,8 @@
+This package is wrote for yamaha speaker Demo platform, 
+ contians these functions:
+
+1 a VideoView object to play and control the demostrate videos
+2 a native library to perform audio route control
+3 a kernel module to perform led system on the platform. pass keyevents and timer events to upper so
+  that the native and java code can take corresponding actions according to these events
+

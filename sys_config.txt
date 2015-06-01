@@ -1,0 +1,13 @@
+[yamahaspk_control]
+yamahaspk_used = 1
+int_section1     = port:PI19<0><default><default><0>
+int_section2     = port:PH20<0><default><default><0>
+int_section3     = port:PH21<0><default><default><0>
+control_section1 = port:PI17<1><default><default><0>
+control_section2 = port:PI18<1><default><default><0>
+control_section3 = port:PB13<1><default><default><0>
+int_vol_down     = port:PH06<0><default><default><0> 
+int_vol_up       = port:PH07<0><default><default><0>
+int_play         = port:PH08<0><default><default><0>
+audio_switch1    = port:PI20<1><default><default><0>
+audio_switch2    = port:PI14<1><default><default><0>
