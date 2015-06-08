@@ -78,7 +78,7 @@ import com.raibow.yamahaspk.common.Utils;
  * to set the action bar logo so the playback process looks more seamlessly integrated with
  * the original activity.
  */
-public class Main extends Activity {
+public class Demo1 extends Activity {
     @SuppressWarnings("unused")
     private static final String TAG = "Yamahaspk";
     public static final String KEY_LOGO_BITMAP = "logo-bitmap";
@@ -102,7 +102,6 @@ public class Main extends Activity {
     List<BluetoothDevice> mCachedBluetoothDevices;
     private boolean mIsA2dpConnected = true;
 
-    private IntentBroadcastHandler mIntentBroadcastHandler;
     private WakeLock mWakeLock;
     private static final int MSG_CONNECTION_STATE_CHANGED = 0;
 
@@ -213,7 +212,6 @@ public class Main extends Activity {
 	mAudioService = IAudioService.Stub.asInterface(
 				ServiceManager.checkService(Context.AUDIO_SERVICE));
 
-	mIntentBroadcastHandler = new IntentBroadcastHandler();
 
 	PowerManager pm = (PowerManager)getSystemService(Context.POWER_SERVICE);
 	mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Yamahaspk");
@@ -223,7 +221,6 @@ public class Main extends Activity {
 
 //	getVideoPath();
 
-	mDefaultVolume = 11;
 
         muteVolume(true);
 	resetLed();
@@ -248,14 +245,10 @@ public class Main extends Activity {
 		@Override
 		public void onCompletion() {
 		    if (mCurrentPlayContent == PLAYING_CONTENT_MM) {
-			//mute vol
-//			if (!isStreamMute())
    				muteVolume(true);
 			// switch video content to IPLY
 			switchVideoContent(PLAYING_CONTENT_IPLY);
 			isMMPlaying = false;
-			//reset LED
- 			//resetLed();
 								
 		    } else {
 			super.onCompletion();
@@ -318,114 +311,6 @@ public class Main extends Activity {
         }   
     };  
 
-   private void disconnectA2dpProfile() {
-	if (mA2dp != null){
-	    if (mCachedBluetoothDevices == null)
-		mCachedBluetoothDevices = mA2dp.getConnectedDevices();
-	
-	for (BluetoothDevice device : mCachedBluetoothDevices){
-/*
-	    int status = mA2dp.getConnectionState(device);
-	    boolean isConnected =
-		    status == BluetoothProfile.STATE_CONNECTED;	
-	    if (isConnected){
-	        mA2dp.disconnect(device);
-	    }else{
-	        Log.d(TAG, "a2dp already disconnect");
-	    }
-*/
-	    int delay = mAudioManager.setBluetoothA2dpDeviceConnectionState(device,
-			BluetoothProfile.STATE_DISCONNECTING);
-            mWakeLock.acquire();
-            mIntentBroadcastHandler.sendMessageDelayed(mIntentBroadcastHandler.obtainMessage(
-                                                MSG_CONNECTION_STATE_CHANGED,
-                                                BluetoothProfile.STATE_CONNECTED,
-                                                BluetoothProfile.STATE_DISCONNECTING,
-                                                device),
-                                                delay);
-	}
-	}else{
-	    Log.d (TAG, "Bluetooth connection not be  established");
-	}
-   }
-
-   private void connectA2dpProfile() {
-        if (mA2dp != null){
-            if (mCachedBluetoothDevices == null)
-                mCachedBluetoothDevices = mA2dp.getConnectedDevices();
-    
-        for (BluetoothDevice device : mCachedBluetoothDevices){
-/*
-            int status = mA2dp.getConnectionState(device);
-            boolean isConnected =
-                    status == BluetoothProfile.STATE_CONNECTED; 
-            if (!isConnected){
-                mA2dp.connect(device);	
-            }else{
-                Log.d(TAG, "a2dp already connect");
-            } 
-*/
-	    int delay = mAudioManager.setBluetoothA2dpDeviceConnectionState(device,
-			BluetoothProfile.STATE_CONNECTING);  
-
-	    mWakeLock.acquire();
-	    mIntentBroadcastHandler.sendMessageDelayed(mIntentBroadcastHandler.obtainMessage(
-						MSG_CONNECTION_STATE_CHANGED,
-						BluetoothProfile.STATE_DISCONNECTED,
-						BluetoothProfile.STATE_CONNECTING,
-						device),
-						delay);
-        }   
-        }else{
-            Log.d (TAG, "Bluetooth connection not be  established");
-        }   
-   }
-    private void setAudioRoute(int route){
-	Log.d(TAG, "setAudioRoute: "+ route);
-	switch(route){
-	    case AUDIO_JACKET1:
-            // control jacket switch
-	    switchAudioJackets(AUDIO_JACKET1);
-	    //turn off a2dp
-	    if (mIsA2dpConnected){
-		mAudioManager.setWiredDeviceConnectionState(AudioManager.DEVICE_OUT_WIRED_HEADPHONE,
-							1, 
-							"yamahaspk");
-		mIsA2dpConnected =false;
-		muteVolume(mVolumeIsMute);
-	    }
-	    return;
-	    case AUDIO_JACKET2:
-	    // control jacket switch
-	    switchAudioJackets(AUDIO_JACKET2);
-	    //turn off a2dp
-
-            if (mIsA2dpConnected){
-                    mAudioManager.setWiredDeviceConnectionState(AudioManager.DEVICE_OUT_WIRED_HEADPHONE,
-                                                        1,  
-                                                        "yamahaspk");
-		    mIsA2dpConnected = false;
-		    muteVolume(mVolumeIsMute);
-	    }
-
-	    return;
-	    case AUDIO_BLUETOOTH:
-	    //turn off audio jackets
-	    switchAudioJackets(AUDIO_BLUETOOTH);
- 	    // turn on a2dp, how to confirm a bluetooth connection has been established ?
-//	    if (!mIsA2dpConnected){
-            	mAudioManager.setWiredDeviceConnectionState(AudioManager.DEVICE_OUT_WIRED_HEADPHONE,
-                                                        0,  
-                                                        "yamahaspk");
-		mIsA2dpConnected = true;
-//	    }
-		
-	    return;
-	    default:
-		 Log.e(TAG, "setAudioRoute: unkown route!");
-	    return;
-	}
-    }
 
     private boolean isStreamMute(){
 	return mAudioManager.isStreamMute(AudioManager.STREAM_MUSIC);
@@ -447,65 +332,17 @@ public class Main extends Activity {
 				/*AudioManager.FLAG_SHOW_UI*/0);
     }
 
-    private void startTimer1(){
-	Log.d(TAG, "timer1");
-	mTimerStarted = true;
-	new Handler().postDelayed(new Runnable(){
-    	    public void run(){
-               setAudioRoute(AUDIO_JACKET2);
-	       startTimer2();
-            }
-	}, 7000);
-    }
-
-    private void startTimer2(){
-	Log.d(TAG, "timer2");
-	new Handler().postDelayed(new Runnable(){
-	    public void run(){
-		setAudioRoute(AUDIO_BLUETOOTH);
-		startTimer3();
-	    }
-	}, 7000);
-    }
-
-    private void startTimer3(){
-        Log.d(TAG, "timer3");
-        new Handler().postDelayed(new Runnable(){
-            public void run(){
-		startLed();
-                muteVolume(true);
-		mTimerStarted = false;
-            }
-        }, 7000);
-    }
-
-    public void sevenSecTimerFunc(int timer_count){
-	Log.d(TAG,"sevenSecTimerFunc");
-	if (timer_count == 1){
-	    //switch to jacket2
-	    setAudioRoute(AUDIO_JACKET2);
-	}else if(timer_count == 2){
-	   //switch to bluetooth
-	   setAudioRoute(AUDIO_BLUETOOTH);
-	}else if (timer_count == 3){
-	  //mute
-	  muteVolume(true);
-	}
-    }	
-
     @Override
     public boolean onKeyUp(int keyCode, KeyEvent event)  { 
 	switch(keyCode){
 	case KeyEvent.KEYCODE_F1: //V+
 	{
 	     boolean shouldStartTimer = (mVolumeIsMute == true) && (isMMPlaying == false) && (mTimerStarted == false);
-	     Log.d(TAG, "shouldStartTimer: "+shouldStartTimer+" mVolumeIsMute: "+mVolumeIsMute+
-				" isMMPlaying: "+isMMPlaying+" mTimerStarted: "+ mTimerStarted);
+//	     Log.d(TAG, "shouldStartTimer: "+shouldStartTimer+" mVolumeIsMute: "+mVolumeIsMute+
+//				" isMMPlaying: "+isMMPlaying+" mTimerStarted: "+ mTimerStarted);
 	     if (shouldStartTimer){
 	         //stop led
 	         stopLed();
-		 setAudioRoute(AUDIO_JACKET1);
-	         //mute and continue LED after 7 seconds
 		 muteVolume(false);
 		 startTimer();
 		 mTimerStarted = true;
@@ -522,7 +359,6 @@ public class Main extends Activity {
              if (shouldStartTimer){
 	        //stopLed
 	        stopLed();
-		setAudioRoute(AUDIO_JACKET1);
 		 muteVolume(false);
 	        //mute and continue LED after 7 seconds
 	        startTimer();
@@ -533,7 +369,6 @@ public class Main extends Activity {
 	case KeyEvent.KEYCODE_F3://PLAY
 	    resetLed();
             //switch audio route to s1
-            setAudioRoute(AUDIO_JACKET1);
  	    //switch video content to MM
 	    switchVideoContent(PLAYING_CONTENT_MM);
 	    isMMPlaying = true;
@@ -544,43 +379,13 @@ public class Main extends Activity {
 	   if (!mTimerStarted){
 	   resetLed();
 	   muteVolume(true);
-//	   switchVideoContent(PLAYING_CONTENT_IPLY);
-	   setAudioRoute(AUDIO_JACKET1);
-	   }
-	   return true;
-	case KeyEvent.KEYCODE_F5: //SPK2  //timer event from mcu
-	   // swtich audio route to audio jacket 2
-	   if (!mTimerStarted)
-	   	setAudioRoute(AUDIO_JACKET2);
-	   return true;
-	case KeyEvent.KEYCODE_F6:  //SPK3 // timer event from mcu
-	   // switch audio route to bluetooth
-	   if(!mTimerStarted){
-		setAudioRoute(AUDIO_BLUETOOTH);
-                if ((isMMPlaying == true) || (mTimerStarted == true)){
-			Log.d(TAG, "need to unmute a2dp");
-			mHandler.postDelayed(mA2dpVolumeRunnable, 20);
-		}
 	   }
 	   return true;
 	case KeyEvent.KEYCODE_F7:  //local 7 seconds timer out
-	   timer_count = timer_count + 1;
-	   if (timer_count == 1){
-		setAudioRoute(AUDIO_JACKET2);
-		startTimer();
-	   }else if (timer_count == 2){
-		setAudioRoute(AUDIO_BLUETOOTH);
-                if ((isMMPlaying == true) || (mTimerStarted == true)){
-			Log.d(TAG, "need to unmute a2dp");
-                        mHandler.postDelayed(mA2dpVolumeRunnable, 20);
-		}
-		startTimer();
-	   }else if (timer_count == 3){
 		muteVolume(true);
 		startLed();
 		mTimerStarted = false;
 		timer_count = 0;
-	   }
 	default:
 	   break;
 	}
@@ -625,31 +430,6 @@ public class Main extends Activity {
 	release();
         mPlayer.onDestroy();
         super.onDestroy();
-    }
-
-    /** Handles A2DP connection state change intent broadcasts. */
-    private class IntentBroadcastHandler extends Handler {
-
-        private void onConnectionStateChanged(BluetoothDevice device, int prevState, int state) {
-            Intent intent = new Intent(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
-            intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, prevState);
-            intent.putExtra(BluetoothProfile.EXTRA_STATE, state);
-            intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
-            intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
-            mContext.sendBroadcast(intent, android.Manifest.permission.BLUETOOTH_ADMIN);
-            Log.d(TAG, "Connection state " + device + ": " + prevState + "->" + state);
-//////////////////            mService.notifyProfileConnectionStateChanged(device, BluetoothProfile.A2DP, state, prevState);
-        }
-
-        @Override
-        public void handleMessage(Message msg) {
-            switch (msg.what) {
-                case MSG_CONNECTION_STATE_CHANGED:
-                    onConnectionStateChanged((BluetoothDevice) msg.obj, msg.arg1, msg.arg2);
-                    mWakeLock.release();
-                    break;
-            }
-        }
     }
 
 }

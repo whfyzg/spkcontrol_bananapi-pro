@@ -18,6 +18,7 @@
     <string name="Brightness">Brightness</string>
     <string name="Volume">Volume</string>
     <string name="app_name">YamahaDemo</string>
+    <string name="app_name1">YamahaDemo1</string>
     <!-- Title for picture frame gadget to show in list of all available gadgets -->
     <string name="gadget_title">Picture frame</string>
 

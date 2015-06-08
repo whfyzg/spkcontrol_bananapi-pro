@@ -58,6 +58,18 @@
 
         </activity>
 
+	<!--Demo1-->
+        <activity android:name="com.raibow.yamahaspk.app.Demo1"
+                android:label="@string/app_name1"
+                android:configChanges="orientation|keyboardHidden|screenSize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.LAUNCHER" />
+             </intent-filter>
+
+        </activity>
+
 
         <permission android:name="com.raibow.yamahaspk.filtershow.permission.READ"
                     android:protectionLevel="signature" />

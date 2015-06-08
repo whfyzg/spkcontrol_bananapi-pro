@@ -25,6 +25,8 @@
 #include <linux/ioctl.h>
 
 #include <linux/time.h>
+#include <linux/jiffies.h>
+#include <linux/hrtimer.h>
 
 #include <linux/cdev.h>
 #include <linux/platform_device.h>
@@ -32,7 +34,7 @@
 #define YAMAHA_MAJOR 378
 //ioctl cmd
 
-#define YAMAHA_SPK_BASE		   0xef
+#define YAMAHA_SPK_BASE		   0xa1
 //#define YAMAHA_SPK_RESET_LED       IO(YAMAHA_SPK_BASE, 0)
 //#define YAMAHA_SPK_AUDIO_ROUTE     IOW(YAMAHA_SPK_BASE, 1, int)
 
@@ -40,12 +42,18 @@
 #define YAMAHA_SPK_AUDIO_ROUTE_1  _IO(YAMAHA_SPK_BASE, 10)
 #define YAMAHA_SPK_AUDIO_ROUTE_2  _IO(YAMAHA_SPK_BASE, 11)
 #define YAMAHA_SPK_AUDIO_ROUTE_3  _IO(YAMAHA_SPK_BASE, 12)
+#define YAMAHA_SPK_STOP_LED  _IO(YAMAHA_SPK_BASE, 13)
+#define YAMAHA_SPK_CONTINUE_LED _IO(YAMAHA_SPK_BASE, 14)
+#define YAMAHA_SPK_START_TIMER  _IO(YAMAHA_SPK_BASE, 15)
 
 #define LED_SECTION1 0
 #define LED_SECTION2 1
 #define LED_SECTION3 2
 
 static struct class *yamaha_dev_class;
+
+static int led_need_stop = 0;
+static int led_breakpoint = 1;
 
 static struct sysconfig {
 	int used;
@@ -61,6 +69,8 @@ static struct sysconfig {
 	u32 audio_switch1;
 	u32 audio_switch2; 
 } *sysconfig_demoboard;
+
+struct timer_list seven_sec_timer;
 
 static struct irq_config {
 	u32 irq;
@@ -249,7 +259,7 @@ static void switch_audio_route(int route){
 static void switch_led(int section, int on){
 	u32 gpio_status;
 	
-//	printk(KERN_INFO "yamahaspk<%s>: \n", __func__);
+	printk(KERN_INFO "yamahaspk<%s>: \n", __func__);
 
 	switch(section){
 	case LED_SECTION1:
@@ -296,6 +306,8 @@ static int yamahaspk_release(struct inode *inode, struct file *file) {
 	return 0;
 }
 
+static void yamahaspk_continue_led(void);
+
 static int yamahaspk_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long args){
 	
 	switch(cmd){
@@ -304,10 +316,28 @@ static int yamahaspk_unlocked_ioctl(struct file *file, unsigned int cmd, unsigne
 		switch_led(LED_SECTION1, 0);
 		switch_led(LED_SECTION2, 0);
 		switch_led(LED_SECTION3, 0);
-		mdelay(10);
+		led_need_stop = 0;
+		mdelay(300);
 		//turn on led section 1
 		switch_led(LED_SECTION1, 1);
 		break;
+	case YAMAHA_SPK_STOP_LED:
+		printk(KERN_INFO "YAMAHA_SPK_STOP_LED");
+		led_need_stop = 1;
+		break;
+	case YAMAHA_SPK_CONTINUE_LED:
+/*
+		led_need_stop = 0;
+		if (led_breakpoint == 1){
+			switch_led(LED_SECTION1, 1);
+		}else if (led_breakpoint == 2){
+			switch_led(LED_SECTION1, 2);
+		}else if (led_breakpoint == 3){
+			switch_led(LED_SECTION1, 3);
+		}
+*/
+		yamahaspk_continue_led();
+		break;		
 	case YAMAHA_SPK_AUDIO_ROUTE_1:
 		switch_audio_route(0);
 		break;
@@ -316,6 +346,10 @@ static int yamahaspk_unlocked_ioctl(struct file *file, unsigned int cmd, unsigne
 		break;
 	case YAMAHA_SPK_AUDIO_ROUTE_3:
 		switch_audio_route(2);
+		break;
+	case YAMAHA_SPK_START_TIMER:
+		printk(KERN_INFO "YAMAHA_SPK_START_TIMER");
+		mod_timer(&seven_sec_timer, jiffies + msecs_to_jiffies(7000));
 		break;
 	default:
 		printk(KERN_ERR "yamahaspk<%s>: unkown cmd: %d\n", __func__, cmd);
@@ -333,6 +367,36 @@ static const struct file_operations yamahasp_ops = {
 	.unlocked_ioctl = yamahaspk_unlocked_ioctl,
 };
 
+static void yamahaspk_continue_led(void)
+{
+	printk(KERN_INFO "yamahaspk<%s>: led_breakpoint = %d\n", __func__, led_breakpoint);
+	led_need_stop = 0;
+        if (led_breakpoint == 1){ 
+		switch_led(LED_SECTION1, 0); 
+                switch_led(LED_SECTION2, 0); 
+                switch_led(LED_SECTION3, 0); 
+		mdelay(10);
+        	switch_led(LED_SECTION1, 1); 
+        }else if (led_breakpoint == 2){ 
+                switch_led(LED_SECTION2, 1); 
+        }else if (led_breakpoint == 3){ 
+                switch_led(LED_SECTION3, 1); 
+        }
+
+	led_breakpoint = 1;
+
+	return;   
+	
+}
+
+static void yamahaspk_timer_func(void)
+{
+	printk(KERN_INFO "yamahaspk<%s>: \n", __func__);
+        input_report_key(yamaha_input_dev, KEY_F7, 1); 
+        input_sync(yamaha_input_dev);
+        input_report_key(yamaha_input_dev, KEY_F7, 0); 
+        input_sync(yamaha_input_dev);
+}
 
 //irq handler
 static irqreturn_t yamahaspk_int_handler(void *data){
@@ -344,9 +408,8 @@ static irqreturn_t yamahaspk_int_handler(void *data){
 //                switch_led(LED_SECTION1, 0); 
 //                switch_led(LED_SECTION2, 0); 
 //                switch_led(LED_SECTION3, 0);
-		mdelay(5); 
 		//turn on led section 1
-		switch_led(LED_SECTION1, 1);
+//		switch_led(LED_SECTION1, 1);
 		//report key F4
 		input_report_key(yamaha_input_dev, KEY_F4, 1);
 		input_sync(yamaha_input_dev);
@@ -354,22 +417,29 @@ static irqreturn_t yamahaspk_int_handler(void *data){
 		input_sync(yamaha_input_dev);
 		return IRQ_HANDLED;
 	}else if(irq_config->irq ==  sysconfig_demoboard->int_section2){
-		//trun on led section 2
-		switch_led(LED_SECTION2, 1);
 		//report key F5
 		input_report_key(yamaha_input_dev, KEY_F5, 1);
 		input_sync(yamaha_input_dev);
 		input_report_key(yamaha_input_dev, KEY_F5, 0);
 		input_sync(yamaha_input_dev);
+                if (led_need_stop == 1){
+			led_breakpoint = 2;
+                        return IRQ_HANDLED;
+                 }
+		switch_led(LED_SECTION2, 1);
 		return IRQ_HANDLED;
 	}else if (irq_config->irq ==  sysconfig_demoboard->int_section3){
-		//turn on led section 3
-		switch_led(LED_SECTION3, 1);
 		//report key F6
 		input_report_key(yamaha_input_dev, KEY_F6, 1);
 		input_sync(yamaha_input_dev);
 		input_report_key(yamaha_input_dev, KEY_F6, 0);
 		input_sync(yamaha_input_dev);
+                if (led_need_stop == 1){
+			led_breakpoint = 3;
+                        return IRQ_HANDLED;
+                }
+                //turn on led section 3
+                switch_led(LED_SECTION3, 1);
 		return IRQ_HANDLED;
 	}else if (irq_config->irq ==  sysconfig_demoboard->int_vol_down){
 		struct timespec now;
@@ -382,6 +452,9 @@ static irqreturn_t yamahaspk_int_handler(void *data){
 			input_sync(yamaha_input_dev);
 			input_report_key(yamaha_input_dev, KEY_F2, 0);
 			input_sync(yamaha_input_dev);
+//				led_need_stop = 1;
+//				mod_timer(&seven_sec_timer, jiffies + msecs_to_jiffies(7000));
+//			 	add_timer(&seven_sec_timer);
 		}else{
 			input_report_key(yamaha_input_dev, KEY_VOLUMEDOWN, 1);
 			input_sync(yamaha_input_dev);
@@ -401,6 +474,9 @@ static irqreturn_t yamahaspk_int_handler(void *data){
 			input_sync(yamaha_input_dev);
 			input_report_key(yamaha_input_dev, KEY_F1, 0);	
 			input_sync(yamaha_input_dev);
+//				led_need_stop = 1;
+//				mod_timer(&seven_sec_timer, jiffies + msecs_to_jiffies(7000));
+//				add_timer(&seven_sec_timer);
 		}else{
                         input_report_key(yamaha_input_dev, KEY_VOLUMEUP, 1); 
                         input_sync(yamaha_input_dev);
@@ -460,6 +536,7 @@ static int __init yamahaspk_init(void){
 	set_bit(KEY_F4, input_device->keybit);
 	set_bit(KEY_F5, input_device->keybit);
 	set_bit(KEY_F6, input_device->keybit);
+	set_bit(KEY_F7, input_device->keybit);
         set_bit(KEY_VOLUMEDOWN, input_device->keybit);
         set_bit(KEY_VOLUMEUP, input_device->keybit);
 		
@@ -502,6 +579,10 @@ static int __init yamahaspk_init(void){
 		printk(KERN_ERR "yamahaspk<%s>: fail to  create device inode\n",__func__);
 		goto error_create_device;
 	}
+
+	init_timer(&seven_sec_timer);
+        seven_sec_timer.expires = jiffies + msecs_to_jiffies(7000);
+        seven_sec_timer.function = &yamahaspk_timer_func;
 
 	return 0;
 

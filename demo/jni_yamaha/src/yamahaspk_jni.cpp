@@ -24,8 +24,22 @@ extern "C" {
 
 #include "yamahaspk.h"
 
-static void Yamahaspk_open(JNIEnv* env, jobject thiz) 
+
+jmethodID TimerFunc;
+jobject  Spk;
+JNIEnv* Jenv;
+
+/*
+void  Yamahaspk_timer_func(int timer_count)
+{	
+	Jenv->CallVoidMethod(Spk, TimerFunc, timer_count);		
+	return;
+}
+*/
+
+static void Yamahaspk_open(JNIEnv* env, jclass clazz) 
 {
+//	Jenv  = env;
 	yamahaspk_open();
 	return ;
 }
@@ -40,16 +54,45 @@ static void Yamahaspk_resetLed(JNIEnv* env, jobject thiz) {
 	return;
 }
 
+static void Yamahaspk_startLed(JNIEnv* env, jobject thiz) {
+	yamahaspk_start_led();
+	return ;
+}
+
+static void Yamahaspk_stopLed(JNIEnv* env, jobject thiz) {
+	yamahaspk_stop_led();
+	return;
+}
+
 static void Yamahaspk_switchAudioJackets(JNIEnv* env, jobject thiz, jint route) {
 	yamahaspk_switch_audio(route);
 	return;
 }
 
+
+static void Yamahaspk_setTimer(JNIEnv* env, jobject thiz) {
+	yamahaspk_start_timer();
+	return;
+}
+
+
 static JNINativeMethod gsMethods[] = { 
 	{ "init", "()V", (void*)Yamahaspk_open },
         { "release", "()V", (void*)Yamahaspk_close },
         { "resetLed", "()V", (void*)Yamahaspk_resetLed },
+	{ "startLed", "()V", (void*)Yamahaspk_startLed },
+	{ "startTimer", "()V", (void*)Yamahaspk_setTimer }, 
+	{ "stopLed", "()V", (void*)Yamahaspk_stopLed },
         { "switchAudioJackets", "(I)V", (void*)Yamahaspk_switchAudioJackets } };
+
+static JNINativeMethod gsMethods1[] = { 
+        { "init", "()V", (void*)Yamahaspk_open },
+        { "release", "()V", (void*)Yamahaspk_close },
+        { "resetLed", "()V", (void*)Yamahaspk_resetLed },
+        { "startLed", "()V", (void*)Yamahaspk_startLed },
+        { "startTimer", "()V", (void*)Yamahaspk_setTimer },  
+        { "stopLed", "()V", (void*)Yamahaspk_stopLed },
+/*        { "switchAudioJackets", "(I)V", (void*)Yamahaspk_switchAudioJackets }*/ };
 
 static int registerNativeMethods(JNIEnv* env, const char* className,
         JNINativeMethod* gMethods, int numMethods) {
@@ -67,6 +110,7 @@ static int registerNativeMethods(JNIEnv* env, const char* className,
 }
 
 static const char *javaClassPathName = "com/raibow/yamahaspk/app/Main";
+static const char *javaClassPathName1 = "com/raibow/yamahaspk/app/Demo1";
 
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     JNIEnv* env;
@@ -76,9 +120,22 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     }
     if (!registerNativeMethods(env, javaClassPathName, gsMethods,
             sizeof(gsMethods) / sizeof(gsMethods[0]))) {
-        LOGE("Error: could not register native methods for yamahaspk");
+        LOGE("Error: could not register native methods for yamahaspk Demo0");
         return -1;
     }
+
+   if (!registerNativeMethods(env, javaClassPathName1, gsMethods1,
+		sizeof(gsMethods1) / sizeof(gsMethods1[0]))) {
+	LOGE("Error: could not register native methods for yamahaspk Demo1");
+	return -1;
+   }
+
+/*
+    jclass clazz = env->FindClass("com/raibow/yamahaspk/app/Main");
+    TimerFunc = env->GetMethodID(clazz, "sevenSecTimerFunc", "(I)V");
+    if(TimerFunc == NULL)
+	LOGE("Unable to find sevenSecTimerFunc function in class");
+*/
 
     return JNI_VERSION_1_6;
 }
